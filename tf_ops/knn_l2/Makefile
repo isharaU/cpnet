@@ -1,29 +1,29 @@
+# Paths and Environment Variables
+CUDA_HOME := /usr/local/cuda-11.8  # Update this to match your CUDA version
 
+TF_INC = $(shell python3 -c "import tensorflow as tf; print(tf.sysconfig.get_include())")
+TF_LIB = $(shell python3 -c "import tensorflow as tf; print(tf.sysconfig.get_lib())")
 
+LIBFLAGS = -L$(CUDA_HOME)/lib64 -lcudart -L$(TF_LIB) -ltensorflow_framework -lcublas
 
+ARCH = sm_75  # Update this based on your GPU architecture
+NVCC = $(CUDA_HOME)/bin/nvcc
+CXX = g++
 
-CUDA_HOME := /usr/local/cuda-9.0
+LD_LIBRARY_PATH := $(CUDA_HOME)/lib64
 
-TF_INC = `python3 -c "import tensorflow; print(tensorflow.sysconfig.get_include())"`
-TF_LIB = `python3 -c "import tensorflow as tf; print(tf.sysconfig.get_lib())"`
+# Compiler Flags
+CXXFLAGS = -std=c++11 -shared -fPIC -O2 -D_GLIBCXX_USE_CXX11_ABI=0 -I$(TF_INC)
+NVCCFLAGS = -std=c++11 -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC -arch=$(ARCH) --use_fast_math
 
-LIBFLAGS = -L$(CUDA_HOME)/lib -L$(CUDA_HOME)/lib64 -lcudart -L $(TF_LIB) -ltensorflow_framework -lcublas
-
-arch = sm_70
-
-NVCC = /usr/local/cuda-9.0/bin/nvcc
-
-LD_LIBRARY_PATH=/usr/local/cuda-9.0/lib64
-
+# Targets
 all: knn_op.so 
 
-forward: knn_op.so
-
 knn_op.so: knn_op.cc knn_cuda.cu.o
-	g++ -std=c++11 -shared -fPIC -o knn_op.so knn_op.cc knn_cuda.cu.o -I$(TF_INC) -L$(LIBFLAGS) -O2 -D_GLIBCXX_USE_CXX11_ABI=0
+	$(CXX) $(CXXFLAGS) -o $@ knn_op.cc knn_cuda.cu.o $(LIBFLAGS)
 
 knn_cuda.cu.o: knn_cuda.cu.cc
-	$(NVCC) -std=c++11 -c -o knn_cuda.cu.o knn_cuda.cu.cc -I$(TF_INC) -DGOOGLE_CUDA=1 -x cu -Xcompiler -fPIC -arch $(arch) --use_fast_math
-		
+	$(NVCC) $(NVCCFLAGS) -o $@ $< -I$(TF_INC)
+
 clean:
-	rm *.o *.so
+	rm -f *.o *.so
